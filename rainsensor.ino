@@ -7,6 +7,10 @@ int inPin = 12;
 int value = 0;
 int ledPin = 6;
 
+bool isRaining = false;
+long supposedStoppedRainingTimestamp = 0;
+char postDataStoppedRaining[] = "stoppedRaining=true";
+
 // Initialize the Wifi client library
 WiFiClient client;
 
@@ -16,7 +20,8 @@ char server[] = "erp.librairielabourse.fr";
 int status = WL_IDLE_STATUS;
 
 void setup() {
-  pinMode(inPin, INPUT);
+  
+    pinMode(inPin, INPUT);
 
     // check for the presence of the shield:
     if (WiFi.status() == WL_NO_SHIELD) {
@@ -24,27 +29,48 @@ void setup() {
       // don't continue:
       while (true);
     }
+
 }
 
 void loop() {
   value = digitalRead(inPin);
-  //Serial.print("digital read ");
-  //Serial.println(value);
-
+  
   //Not raining
   if(value == 1) {
-    
+
+      Serial.println("Water not detected...");
+
+      if (isRaining) {
+          Serial.println("It maybe stopped raining... let's wait some time.");
+          supposedStoppedRainingTimestamp = millis();
+          isRaining = false;
+      }
+
+      if (supposedStoppedRainingTimestamp != 0 && millis() > (supposedStoppedRainingTimestamp + 600*1000)) {
+          Serial.println("It surely stopped raining. Calling server...");
+          httpRequest(true);
+          supposedStoppedRainingTimestamp = 0;
+      }
+     
+      delay(1000);
   }
   //Raining
   else if(value == 0) {
-    httpRequest();
+      Serial.println("Water detected !");
+
+      if(!isRaining) {
+          Serial.println("Calling server...");
+          isRaining = true;
+          httpRequest(false);
+      }
   }
 }
 
 
 // this method makes a HTTP connection to the server:
-void httpRequest() {
+void httpRequest(bool stoppedRaining) {
 
+  wifiDisconnect();
   connectToWifi();
   
   // close any connection before send a new request.
@@ -53,26 +79,34 @@ void httpRequest() {
 
   // if there's a successful connection:
   if (client.connect(server, 80)) {
-    Serial.println("connecting...");
+    Serial.println("Connecting...");
  
-    // EDIT: The POST 'URL' to the location of your insert_mysql.php on your web-host
-    client.println("POST /postcall/rainsensor.postcall.php HTTP/1.1");
+    client.println("POST http://erp.librairielabourse.fr/postcall/rainsensor.postcall.php HTTP/1.1");
 
-    // EDIT: 'Host' to match your domain
     client.println("Host: librairielabourse.fr");
     client.println("User-Agent: Arduino/1.0");
     client.println("Connection: close");
     client.println("Content-Type: application/x-www-form-urlencoded;");
-    client.print("Content-Length: ");
-    client.println(0);
-    client.println();
+
+    if(stoppedRaining) {
+      client.print("Content-Length: ");
+      client.print(strlen(postDataStoppedRaining));
+      client.println();
+      client.println(postDataStoppedRaining);  
+    }
+    else {
+      client.print("Content-Length: ");
+      client.println(0);
+      client.println();
+    }
+    
+    Serial.println("Connection has been sent !");
   }
   else {
-    // if you couldn't make a connection:
     Serial.println("connection failed");
   }
 
-  WiFi.disconnect(); 
+  wifiDisconnect();
 }
 
 bool connectToWifi() {
@@ -94,3 +128,9 @@ bool connectToWifi() {
   
 }
 
+void wifiDisconnect() {
+
+  WiFi.disconnect(); 
+  status = WiFi.status();
+    
+}
