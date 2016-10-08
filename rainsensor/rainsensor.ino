@@ -48,7 +48,7 @@ void loop() {
 
       if (supposedStoppedRainingTimestamp != 0 && millis() > (supposedStoppedRainingTimestamp + 600*1000)) {
           Serial.println("It surely stopped raining. Calling server...");
-          httpRequest(true);
+          httpRequestRetry(true);
           supposedStoppedRainingTimestamp = 0;
       }
      
@@ -61,52 +61,60 @@ void loop() {
       if(!isRaining) {
           Serial.println("Calling server...");
           isRaining = true;
-          httpRequest(false);
+          httpRequestRetry(false);
       }
   }
 }
 
+bool httpRequestRetry(bool stoppedRaining) {
+    
+    while(!httpRequest(false)) {
+       Serial.println("Call to server failed. Trying to reconnect and send http request...");
+    }
+}
 
 // this method makes a HTTP connection to the server:
-void httpRequest(bool stoppedRaining) {
-
-  wifiDisconnect();
-  connectToWifi();
+bool httpRequest(bool stoppedRaining) {
+    
+    wifiDisconnect();
+    connectToWifi();
+    
+    // close any connection before send a new request.
+    // This will free the socket on the WiFi shield
+    client.stop();
   
-  // close any connection before send a new request.
-  // This will free the socket on the WiFi shield
-  client.stop();
-
-  // if there's a successful connection:
-  if (client.connect(server, 80)) {
-    Serial.println("Connecting...");
- 
-    client.println("POST http://erp.librairielabourse.fr/postcall/rainsensor.postcall.php HTTP/1.1");
-
-    client.println("Host: librairielabourse.fr");
-    client.println("User-Agent: Arduino/1.0");
-    client.println("Connection: close");
-    client.println("Content-Type: application/x-www-form-urlencoded;");
-
-    if(stoppedRaining) {
-      client.print("Content-Length: ");
-      client.print(strlen(postDataStoppedRaining));
-      client.println();
-      client.println(postDataStoppedRaining);  
+    // if there's a successful connection:
+    if (client.connect(server, 80)) {
+      Serial.println("Connecting...");
+   
+      client.println("POST http://erp.librairielabourse.fr/postcall/rainsensor.postcall.php HTTP/1.1");
+  
+      client.println("Host: librairielabourse.fr");
+      client.println("User-Agent: Arduino/1.0");
+      client.println("Connection: close");
+      client.println("Content-Type: application/x-www-form-urlencoded;");
+  
+      if(stoppedRaining) {
+        client.print("Content-Length: ");
+        client.print(strlen(postDataStoppedRaining));
+        client.println();
+        client.println(postDataStoppedRaining);  
+      }
+      else {
+        client.print("Content-Length: ");
+        client.println(0);
+        client.println();
+      }
+      
+      Serial.println("Connection has been sent !");
+      return true;
     }
     else {
-      client.print("Content-Length: ");
-      client.println(0);
-      client.println();
+      Serial.println("connection failed");
+      return false;
     }
-    
-    Serial.println("Connection has been sent !");
-  }
-  else {
-    Serial.println("connection failed");
-  }
-
-  wifiDisconnect();
+  
+    wifiDisconnect();  
 }
 
 bool connectToWifi() {
@@ -132,5 +140,4 @@ void wifiDisconnect() {
 
   WiFi.disconnect(); 
   status = WiFi.status();
-    
 }
