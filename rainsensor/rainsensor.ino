@@ -20,7 +20,8 @@ char server[] = "erp.librairielabourse.fr";
 int status = WL_IDLE_STATUS;
 
 void setup() {
-  
+
+    blingBling();
     pinMode(inPin, INPUT);
 
     // check for the presence of the shield:
@@ -30,6 +31,13 @@ void setup() {
       while (true);
     }
 
+}
+
+void blingBling() {
+    digitalWrite(6, HIGH);
+    delay(500);
+    digitalWrite(6, LOW);
+    delay(500);  
 }
 
 void loop() {
@@ -46,7 +54,7 @@ void loop() {
           supposedStoppedRainingTimestamp = millis();
       }
 
-      if (supposedStoppedRainingTimestamp > 0 && millis() > (supposedStoppedRainingTimestamp + 10*1000)) {
+      if (supposedStoppedRainingTimestamp > 0 && millis() > (supposedStoppedRainingTimestamp + 600*1000)) {
           Serial.println("It surely stopped raining. Calling server...");
           httpRequestRetry(true);
           supposedStoppedRainingTimestamp = 0;
@@ -70,7 +78,7 @@ void loop() {
       }
   }
 
-   delay(1000);
+   delay(300);
 }
 
 bool httpRequestRetry(bool stoppedRaining) {
