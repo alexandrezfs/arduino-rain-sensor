@@ -33,6 +33,7 @@ void setup() {
 }
 
 void loop() {
+
   value = digitalRead(inPin);
   
   //Not raining
@@ -40,30 +41,36 @@ void loop() {
 
       Serial.println("Water not detected...");
 
-      if (isRaining) {
+      if (isRaining && supposedStoppedRainingTimestamp == 0) {
           Serial.println("It maybe stopped raining... let's wait some time.");
           supposedStoppedRainingTimestamp = millis();
-          isRaining = false;
       }
 
-      if (supposedStoppedRainingTimestamp != 0 && millis() > (supposedStoppedRainingTimestamp + 600*1000)) {
+      if (supposedStoppedRainingTimestamp > 0 && millis() > (supposedStoppedRainingTimestamp + 10*1000)) {
           Serial.println("It surely stopped raining. Calling server...");
           httpRequestRetry(true);
           supposedStoppedRainingTimestamp = 0;
+          isRaining = false;
       }
      
-      delay(1000);
   }
   //Raining
   else if(value == 0) {
+    
       Serial.println("Water detected !");
 
-      if(!isRaining) {
-          Serial.println("Calling server...");
+      if(supposedStoppedRainingTimestamp > 0) {
           isRaining = true;
+          supposedStoppedRainingTimestamp = 0;
+      }
+      else if(!isRaining && supposedStoppedRainingTimestamp == 0) {
+          isRaining = true;
+          Serial.println("Calling server...");
           httpRequestRetry(false);
       }
   }
+
+   delay(1000);
 }
 
 bool httpRequestRetry(bool stoppedRaining) {
